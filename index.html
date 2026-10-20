@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Laboratoire d'Injections SQL - 5 Épreuves</title>
+<style>
+:root{
+  --primary:#3e80af; --bg:#f4f6f9; --card-bg:#ffffff; --text:#2c3e50;
+  --success:#28a745; --danger:#dc3545; --warning:#ffc107; --muted:#9aa5b1;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15191f; --card-bg:#1e242c; --text:#e6e9ee; --muted:#6b7684;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15191f; --card-bg:#1e242c; --text:#e6e9ee; --muted:#6b7684;
+}
+*{box-sizing:border-box;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg); color:var(--text); margin:0;
+  padding:20px; padding-top:calc(20px + env(safe-area-inset-top,0px));
+  padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));
+}
+.wrap{max-width:900px;margin:0 auto;}
+h1{color:var(--primary);text-align:center;margin-bottom:6px;font-size:1.5rem;}
+.subtitle{text-align:center;color:var(--muted);margin-bottom:18px;font-size:.92rem;}
+.warning{
+  background:#fff7e6;border:1px solid var(--warning);color:#7a5200;
+  border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:.9rem;line-height:1.5;
+}
+:root[data-theme="dark"] .warning, @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .warning{background:#2b2410;color:#f0d891;}}
+.progress-bar{
+  display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;
+}
+.badge{
+  flex:1;min-width:120px;background:var(--card-bg);border:2px solid var(--muted);
+  border-radius:8px;padding:10px;text-align:center;font-size:.8rem;font-weight:600;
+  transition:all .2s;
+}
+.badge.done{border-color:var(--success);background:rgba(40,167,69,.12);color:var(--success);}
+.badge .num{display:block;font-size:1.1rem;}
+.overall{text-align:center;margin-bottom:20px;font-weight:600;color:var(--primary);}
+.tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;overflow-x:auto;}
+.tab-btn{
+  padding:10px 14px;background:var(--card-bg);border:1px solid var(--muted);
+  border-radius:6px;cursor:pointer;font-weight:bold;color:var(--text);white-space:nowrap;
+}
+.tab-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+.tab-content{display:none;background:var(--card-bg);border-radius:8px;padding:20px;
+  box-shadow:0 4px 6px rgba(0,0,0,.08);border-left:5px solid var(--primary);}
+.tab-content.active{display:block;}
+.form-group{margin-bottom:14px;}
+label{display:block;margin-bottom:5px;font-weight:600;}
+input[type="text"],input[type="password"]{
+  width:100%;padding:10px;border:1px solid var(--muted);border-radius:4px;
+  font-family:monospace;background:var(--bg);color:var(--text);
+}
+button.action-btn{
+  background:var(--primary);color:#fff;border:none;padding:10px 20px;
+  border-radius:4px;cursor:pointer;font-weight:bold;
+}
+.hint{color:var(--muted);font-size:.85rem;margin-top:-6px;margin-bottom:10px;}
+.toggle-row{display:block;margin-top:10px;font-size:.85rem;color:var(--text);cursor:pointer;}
+.discovered{background:#1e1e1e;color:#7ad67a;padding:10px 12px;border-radius:4px;font-family:monospace;margin-bottom:14px;letter-spacing:2px;}
+.console{background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:4px;
+  font-family:monospace;margin-top:14px;overflow-x:auto;word-break:break-all;font-size:.85rem;white-space:pre-wrap;}
+.result-box{margin-top:14px;padding:12px;border-radius:4px;display:none;font-weight:bold;}
+.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb;}
+.danger{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;}
+.info{background:#e2e3e5;color:#383d41;border:1px solid #d6d8db;}
+table{width:100%;border-collapse:collapse;margin-top:12px;overflow-x:auto;display:block;}
+th,td{border:1px solid var(--muted);padding:8px;text-align:left;font-size:.85rem;}
+th{background:rgba(62,128,175,.12);}
+.reset{display:block;margin:24px auto 0;background:none;border:1px solid var(--muted);
+  color:var(--muted);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:.8rem;}
+.schema-block{margin-bottom:24px;}
+.schema-block h3{margin-bottom:6px;color:var(--primary);font-size:1rem;}
+.add-form{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center;}
+.add-form input,.add-form select{flex:1;min-width:110px;padding:8px;border:1px solid var(--muted);border-radius:4px;background:var(--bg);color:var(--text);font-family:monospace;}
+.add-form button{flex:none;}
+.add-msg{font-size:.82rem;color:var(--danger);margin-top:6px;min-height:1em;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Laboratoire d'Attaques par Injection SQL</h1>
+
+<div class="progress-bar" id="progressBar"></div>
+<div class="overall" id="overallProgress"></div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="openTab(event,'opt1')">1. Contournement Auth</button>
+  <button class="tab-btn" onclick="openTab(event,'opt0')">2. Création &amp; Données</button>
+  <button class="tab-btn" onclick="openTab(event,'opt2')">3. Injection Numérique</button>
+  <button class="tab-btn" onclick="openTab(event,'opt3')">4. Exfiltration UNION</button>
+  <button class="tab-btn" onclick="openTab(event,'opt4')">5. Requête Empilée</button>
+  <button class="tab-btn" onclick="openTab(event,'opt5')">6. Injection Aveugle</button>
+</div>
+
+<div id="opt0" class="tab-content">
+  <h2>Création des tables et des données de départ</h2>
+
+  <div class="schema-block">
+    <h3>Table <code>users</code></h3>
+    <div class="console" id="consoleUsers">CREATE TABLE users (
+  id       INTEGER PRIMARY KEY,
+  username TEXT NOT NULL,
+  password TEXT NOT NULL,
+  role     TEXT DEFAULT 'user'
+);
+
+INSERT INTO users (id, username, password, role) VALUES
+  (1, 'Youssef', 'youssef123', 'admin'),
+  (2, 'Gassen', 'gassen123',  'user'),
+  (3, 'Ahmed',   'ahmed123',     'user');
+
+SELECT * FROM users;</div>
+    <table id="tableUsers">
+      <tr><th>id</th><th>username</th><th>password</th><th>role</th></tr>
+      <tr><td>1</td><td>Youssef</td><td>youssef123</td><td>admin</td></tr>
+      <tr><td>2</td><td>Gassen</td><td>gassen123</td><td>user</td></tr>
+      <tr><td>3</td><td>Ahmed</td><td>ahmed123</td><td>user</td></tr>
+    </table>
+    <form class="add-form" id="addUserForm">
+      <input type="text" id="add_user_name" placeholder="username" autocomplete="off">
+      <input type="text" id="add_user_pass" placeholder="password" autocomplete="off">
+      <select id="add_user_role"><option value="user">user</option><option value="admin">admin</option></select>
+      <button type="submit" class="action-btn">Ajouter</button>
+    </form>
+    <div class="add-msg" id="addUserMsg"></div>
+  </div>
+
+  <div class="schema-block">
+    <h3>Table <code>products</code></h3>
+    <div class="console" id="consoleProducts">CREATE TABLE products (
+  id          INTEGER PRIMARY KEY,
+  name        TEXT,
+  price       REAL,
+  category_id INTEGER
+);
+
+INSERT INTO products (id, name, price, category_id) VALUES
+  (1, 'Écran',                149.90, 1),
+  (2, 'Souris',                 19.90, 2),
+  (3, 'Serveur confidentiel', 99.00, 3);
+
+SELECT * FROM products;</div>
+    <table id="tableProducts">
+      <tr><th>id</th><th>name</th><th>price</th><th>category_id</th></tr>
+      <tr><td>1</td><td>Écran</td><td>149.90</td><td>1</td></tr>
+      <tr><td>2</td><td>Souris</td><td>19.90</td><td>2</td></tr>
+      <tr><td>3</td><td>Serveur confidentiel</td><td>99.00</td><td>3</td></tr>
+    </table>
+    <form class="add-form" id="addProductForm">
+      <input type="text" id="add_prod_name" placeholder="name" autocomplete="off">
+      <input type="text" id="add_prod_price" placeholder="price (ex: 49.90)" inputmode="decimal" autocomplete="off">
+      <input type="text" id="add_prod_cat" placeholder="category_id" inputmode="numeric" autocomplete="off">
+      <button type="submit" class="action-btn">Ajouter</button>
+    </form>
+    <div class="add-msg" id="addProductMsg"></div>
+  </div>
+
+</div>
+
+<div id="opt1" class="tab-content active">
+  <h2>1. Contournement de Connexion</h2>
+  <form id="formOpt1">
+    <div class="form-group">
+      <label>Nom d'utilisateur :</label>
+      <input type="text" id="opt1_user" placeholder="ex: admin' --" required>
+    </div>
+    <div class="hint">Astuce : <code>admin'--</code> commente la vérification du mot de passe.</div>
+    <div class="form-group">
+      <label>Mot de passe :</label>
+      <input type="password" id="opt1_pass" placeholder="••••••••">
+    </div>
+    <button type="submit" class="action-btn">Se connecter</button>
+  </form>
+  <label class="toggle-row"><input type="checkbox" id="prep1"> Le même en requête préparée</label>
+  <div class="console"><strong>Requête :</strong> <span id="sqlOpt1">SELECT * FROM users WHERE username = '' AND password = '';</span></div>
+  <div id="resOpt1" class="result-box"></div>
+</div>
+
+<div id="opt2" class="tab-content">
+  <h2>2. Injection Numérique</h2>
+  <form id="formOpt2">
+    <div class="form-group">
+      <label>ID de la catégorie :</label>
+      <input type="text" id="opt2_id" placeholder="ex: 1 OR 1=1" required>
+    </div>
+    <button type="submit" class="action-btn">Filtrer</button>
+  </form>
+  <label class="toggle-row"><input type="checkbox" id="prep2"> Le même en requête préparée</label>
+  <div class="console"><strong>Requête :</strong> <span id="sqlOpt2">SELECT * FROM products WHERE category_id = ;</span></div>
+  <div id="resOpt2" class="result-box"></div>
+  <div id="tableOpt2"></div>
+</div>
+
+<div id="opt3" class="tab-content">
+  <h2>3. Exfiltration de données par UNION</h2>
+  <form id="formOpt3">
+    <div class="form-group">
+      <label>Nom du produit :</label>
+      <input type="text" id="opt3_search" placeholder="ex: ' UNION SELECT id, username, password, role FROM users --" required>
+    </div>
+    <button type="submit" class="action-btn">Rechercher</button>
+  </form>
+  <label class="toggle-row"><input type="checkbox" id="prep3"> Le même en requête préparée</label>
+  <div class="console"><strong>Requête :</strong> <span id="sqlOpt3">SELECT id, name, price, category_id FROM products WHERE name = '';</span></div>
+  <div id="resOpt3" class="result-box"></div>
+  <div id="tableOpt3"></div>
+</div>
+
+<div id="opt4" class="tab-content">
+  <h2>4. Requête Empilée (Stacked Queries)</h2>
+  <form id="formOpt4">
+    <div class="form-group">
+      <label>ID Utilisateur :</label>
+      <input type="text" id="opt4_id" placeholder="ex: 2; UPDATE users SET role='admin' WHERE id=2;" required>
+    </div>
+    <button type="submit" class="action-btn">Exécuter</button>
+  </form>
+  <label class="toggle-row"><input type="checkbox" id="prep4"> Le même en requête préparée</label>
+  <div class="console"><strong>Requête :</strong> <span id="sqlOpt4">SELECT * FROM users WHERE id = ;</span></div>
+  <div id="resOpt4" class="result-box"></div>
+</div>
+
+<div id="opt5" class="tab-content">
+  <h2>5. Injection à l'Aveugle (Blind SQLi)</h2>
+  <div class="discovered" id="discoveredBox">Découvert : ______</div>
+  <form id="formOpt5">
+    <div class="form-group">
+      <label>Condition à tester :</label>
+      <input type="text" id="opt5_user" placeholder="ex: ' OR substr(password,1,1)='a" required>
+    </div>
+    <div class="hint">Changez la position (1 à 6) et le caractère testé à chaque essai.</div>
+    <button type="submit" class="action-btn">Tester</button>
+  </form>
+  <label class="toggle-row"><input type="checkbox" id="prep5"> Le même en requête préparée</label>
+  <div class="console"><strong>Requête :</strong> <span id="sqlOpt5">SELECT id FROM users WHERE username = '' AND password = '';</span></div>
+  <div id="resOpt5" class="result-box"></div>
+</div>
+
+<button class="reset" onclick="resetProgress()">Réinitialiser ma progression</button>
+</div>
+
+<script>
+const LABELS = ["Auth","Numérique","UNION","Empilée","Aveugle"];
+let progress = {1:false,2:false,3:false,4:false,5:false};
+
+function loadProgress(){
+  try{
+    const saved = localStorage.getItem('sqli_lab_progress');
+    if(saved) progress = JSON.parse(saved);
+  }catch(e){ /* stockage indisponible, on repart de zéro */ }
+}
+function saveProgress(){
+  try{ localStorage.setItem('sqli_lab_progress', JSON.stringify(progress)); }catch(e){}
+}
+function renderProgress(){
+  const bar = document.getElementById('progressBar');
+  bar.innerHTML = '';
+  let count = 0;
+  for(let i=1;i<=5;i++){
+    if(progress[i]) count++;
+    const div = document.createElement('div');
+    div.className = 'badge' + (progress[i] ? ' done' : '');
+    div.innerHTML = `<span class="num">${progress[i] ? '✓' : i}</span>${LABELS[i-1]}`;
+    bar.appendChild(div);
+  }
+  document.getElementById('overallProgress').textContent = `Progression : ${count} / 5 épreuves réussies`;
+}
+function markDone(n){
+  if(!progress[n]){ progress[n] = true; saveProgress(); renderProgress(); }
+}
+function resetProgress(){
+  progress = {1:false,2:false,3:false,4:false,5:false};
+  saveProgress(); renderProgress();
+  // Épreuve 5 : mot de passe découvert
+  discovered5 = Array(secret5.length).fill('_');
+  try{ localStorage.removeItem('sqli_lab_discovered5'); }catch(e){}
+  renderDiscovered();
+  // Résultats, tableaux et requêtes affichés
+  ['resOpt1','resOpt2','resOpt3','resOpt4','resOpt5'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.display = 'none';
+    el.innerHTML = '';
+  });
+  ['tableOpt2','tableOpt3'].forEach(id => { document.getElementById(id).innerHTML = ''; });
+  document.getElementById('sqlOpt1').textContent = "SELECT * FROM users WHERE username = '' AND password = '';";
+  document.getElementById('sqlOpt2').textContent = "SELECT * FROM products WHERE category_id = ;";
+  document.getElementById('sqlOpt3').textContent = "SELECT id, name, price, category_id FROM products WHERE name = '';";
+  document.getElementById('sqlOpt4').textContent = "SELECT * FROM users WHERE id = ;";
+  document.getElementById('sqlOpt5').textContent = "SELECT id FROM users WHERE username = '' AND password = '';";
+  // Champs et cases à cocher
+  document.querySelectorAll('form').forEach(f => f.reset());
+  document.querySelectorAll('.toggle-row input').forEach(cb => { cb.checked = false; });
+  document.getElementById('addUserMsg').textContent = '';
+  document.getElementById('addProductMsg').textContent = '';
+}
+
+function openTab(evt, tabName){
+  document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(tb => tb.classList.remove('active'));
+  document.getElementById(tabName).classList.add('active');
+  evt.currentTarget.classList.add('active');
+}
+function isPrepared(id){
+  const el = document.getElementById(id);
+  return !!(el && el.checked);
+}
+
+// 1. Contournement Auth
+document.getElementById('formOpt1').addEventListener('submit', function(e){
+  e.preventDefault();
+  const u = document.getElementById('opt1_user').value;
+  const p = document.getElementById('opt1_pass').value;
+  document.getElementById('sqlOpt1').textContent = `SELECT * FROM users WHERE username = '${u}' AND password = '${p}';`;
+  const res = document.getElementById('resOpt1');
+  res.style.display = 'block';
+  if (isPrepared('prep1')) {
+    res.className = "result-box info";
+    res.innerHTML = "Requête préparée : la chaîne est liée comme simple valeur, aucun code n'est exécuté. Injection neutralisée.";
+    return;
+  }
+  if (u.includes("' OR '1'='1") || u.includes("admin'--") || u.includes("' OR 1=1")) {
+    res.className = "result-box success";
+    res.innerHTML = "Accès accordé — session admin activée via contournement d'authentification.";
+    markDone(1);
+  } else {
+    res.className = "result-box danger";
+    res.innerHTML = "Échec d'authentification.";
+  }
+});
+
+// 2. Injection Numérique
+document.getElementById('formOpt2').addEventListener('submit', function(e){
+  e.preventDefault();
+  const val = document.getElementById('opt2_id').value;
+  document.getElementById('sqlOpt2').textContent = `SELECT * FROM products WHERE category_id = ${val};`;
+  const res = document.getElementById('resOpt2');
+  const tbl = document.getElementById('tableOpt2');
+  res.style.display = 'block';
+  if (isPrepared('prep2')) {
+    res.className = "result-box info";
+    res.innerHTML = "Requête préparée : la valeur est liée en tant qu'entier simple, l'injection échoue.";
+    tbl.innerHTML = "";
+    return;
+  }
+  if (val.includes("OR 1=1") || val.toLowerCase().includes("or true")) {
+    res.className = "result-box success";
+    res.innerHTML = "Injection numérique réussie — récupération de l'ensemble de la table !";
+    tbl.innerHTML = `<table><tr><th>ID</th><th>Produit</th><th>Catégorie ID</th></tr>
+      <tr><td>1</td><td>Écran</td><td>1</td></tr>
+      <tr><td>2</td><td>Souris</td><td>2</td></tr>
+      <tr><td>3</td><td>Serveur confidentiel</td><td>99</td></tr></table>`;
+    markDone(2);
+  } else {
+    res.className = "result-box info";
+    res.innerHTML = "Filtre standard appliqué.";
+    tbl.innerHTML = "";
+  }
+});
+
+// 3. Exfiltration UNION
+document.getElementById('formOpt3').addEventListener('submit', function(e){
+  e.preventDefault();
+  const val = document.getElementById('opt3_search').value;
+  document.getElementById('sqlOpt3').textContent = `SELECT id, name, price, category_id FROM products WHERE name = '${val}';`;
+  const res = document.getElementById('resOpt3');
+  const tbl = document.getElementById('tableOpt3');
+  res.style.display = 'block';
+  if (isPrepared('prep3')) {
+    res.className = "result-box info";
+    res.innerHTML = "Requête préparée : le terme de recherche est lié comme simple valeur, l'UNION échoue.";
+    tbl.innerHTML = "";
+    return;
+  }
+  if (val.toLowerCase().includes("union select")) {
+    res.className = "result-box success";
+    res.innerHTML = "Exfiltration UNION réussie !";
+    tbl.innerHTML = `<table><tr><th>ID</th><th>Username</th><th>Password</th><th>Role</th></tr>
+      <tr><td>1</td><td>Youssef</td><td>youssef123</td><td>admin</td></tr>
+      <tr><td>2</td><td>Gassen</td><td>gassen123</td><td>user</td></tr>
+      <tr><td>3</td><td>Ahmed</td><td>ahmed123</td><td>user</td></tr></table>`;
+    markDone(3);
+  } else {
+    res.className = "result-box danger";
+    res.innerHTML = "Aucun résultat exfiltré.";
+    tbl.innerHTML = "";
+  }
+});
+
+// 4. Requête Empilée
+document.getElementById('formOpt4').addEventListener('submit', function(e){
+  e.preventDefault();
+  const val = document.getElementById('opt4_id').value;
+  document.getElementById('sqlOpt4').textContent = `SELECT * FROM users WHERE id = ${val};`;
+  const res = document.getElementById('resOpt4');
+  res.style.display = 'block';
+  if (isPrepared('prep4')) {
+    res.className = "result-box info";
+    res.innerHTML = "Requête préparée : un seul paramètre est transmis, impossible d'empiler une seconde instruction.";
+    return;
+  }
+  if (val.includes(";") && (val.toLowerCase().includes("update") || val.toLowerCase().includes("delete") || val.toLowerCase().includes("insert"))) {
+    res.className = "result-box success";
+    res.innerHTML = "Requête empilée exécutée avec succès ! Les privilèges ont été modifiés.";
+    markDone(4);
+  } else {
+    res.className = "result-box danger";
+    res.innerHTML = "Commande unique exécutée, aucune modification.";
+  }
+});
+
+// 5. Injection à l'aveugle
+const secret5 = "r00t42";
+let discovered5 = Array(secret5.length).fill('_');
+function loadDiscovered(){
+  try{
+    const saved = localStorage.getItem('sqli_lab_discovered5');
+    if(saved) discovered5 = JSON.parse(saved);
+  }catch(e){}
+}
+function renderDiscovered(){
+  const box = document.getElementById('discoveredBox');
+  if(box) box.textContent = 'Découvert : ' + discovered5.join('');
+}
+document.getElementById('formOpt5').addEventListener('submit', function(e){
+  e.preventDefault();
+  const val = document.getElementById('opt5_user').value;
+  document.getElementById('sqlOpt5').textContent = `SELECT id FROM users WHERE username = '' AND password = '${val}';`;
+  const res = document.getElementById('resOpt5');
+  res.style.display = 'block';
+  if (isPrepared('prep5')) {
+    res.className = "result-box info";
+    res.innerHTML = "Requête préparée : la condition est liée comme simple valeur, l'injection échoue.";
+    return;
+  }
+  const m = val.match(/substr(?:ing)?\s*\(\s*password\s*,\s*(\d+)\s*,\s*1\s*\)\s*=\s*'(.)'/i);
+  if (!m) {
+    res.className = "result-box danger";
+    res.innerHTML = "Condition non reconnue. Utilisez le format substr(password, N, 1) = '?'.";
+    return;
+  }
+  const pos = parseInt(m[1], 10);
+  const ch = m[2];
+  if (pos >= 1 && pos <= secret5.length && secret5[pos-1].toLowerCase() === ch.toLowerCase()) {
+    discovered5[pos-1] = secret5[pos-1];
+    try{ localStorage.setItem('sqli_lab_discovered5', JSON.stringify(discovered5)); }catch(err){}
+    renderDiscovered();
+    res.className = "result-box success";
+    res.innerHTML = `[Réponse booléenne] HTTP 200 OK : condition VRAIE — caractère ${pos} confirmé.`;
+    if (!discovered5.includes('_')) {
+      res.innerHTML += ` Mot de passe reconstitué : <strong>${discovered5.join('')}</strong> !`;
+      markDone(5);
+    }
+  } else {
+    res.className = "result-box danger";
+    res.innerHTML = "[Réponse booléenne] HTTP 404 Not Found : condition FAUSSE.";
+  }
+});
+loadDiscovered();
+renderDiscovered();
+
+// Ajout de lignes (INSERT) dans users et products
+function sqlStr(s){ return "'" + s.replace(/'/g, "''") + "'"; }
+function nextId(tableId){
+  const t = document.getElementById(tableId);
+  let m = 0;
+  for(let i=1;i<t.rows.length;i++){
+    const v = parseInt(t.rows[i].cells[0].textContent, 10);
+    if(v > m) m = v;
+  }
+  return m + 1;
+}
+function addRow(tableId, cells){
+  const tr = document.getElementById(tableId).insertRow();
+  cells.forEach(c => { tr.insertCell().textContent = c; });
+}
+function logInsert(consoleId, stmt){
+  const c = document.getElementById(consoleId);
+  const txt = c.textContent;
+  const idx = txt.lastIndexOf('SELECT * FROM');
+  c.textContent = txt.slice(0, idx).replace(/\s+$/, '') + "\n" + stmt + "\n\n" + txt.slice(idx);
+}
+
+document.getElementById('addUserForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const name = document.getElementById('add_user_name').value.trim();
+  const pass = document.getElementById('add_user_pass').value;
+  const role = document.getElementById('add_user_role').value;
+  const msg = document.getElementById('addUserMsg');
+  if(!name || !pass){ msg.textContent = "Renseigne le username et le password."; return; }
+  msg.textContent = "";
+  const id = nextId('tableUsers');
+  addRow('tableUsers', [id, name, pass, role]);
+  logInsert('consoleUsers', `INSERT INTO users (id, username, password, role) VALUES (${id}, ${sqlStr(name)}, ${sqlStr(pass)}, ${sqlStr(role)});`);
+  this.reset();
+});
+
+document.getElementById('addProductForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const name = document.getElementById('add_prod_name').value.trim();
+  const price = parseFloat(document.getElementById('add_prod_price').value.replace(',', '.'));
+  const cat = parseInt(document.getElementById('add_prod_cat').value, 10);
+  const msg = document.getElementById('addProductMsg');
+  if(!name || isNaN(price) || isNaN(cat)){ msg.textContent = "Renseigne un nom, un prix (nombre) et une category_id (entier)."; return; }
+  msg.textContent = "";
+  const id = nextId('tableProducts');
+  addRow('tableProducts', [id, name, price.toFixed(2), cat]);
+  logInsert('consoleProducts', `INSERT INTO products (id, name, price, category_id) VALUES (${id}, ${sqlStr(name)}, ${price.toFixed(2)}, ${cat});`);
+  this.reset();
+});
+
+loadProgress();
+renderProgress();
+</script>
+</body>
+</html>
